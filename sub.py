@@ -120,6 +120,7 @@ def submit(s: requests.Session, old: dict):
         # 'old_szdd': old['szdd'],# 2021.8.1 del
         'geo_api_info': old['old_city'],  # 保持昨天的结果
         'old_city': old['old_city'],
+        'sfzx': old['sfzx'], #in school or not
         'geo_api_infot': old['geo_api_infot'],
         'date': datetime.now(tz=pytz.timezone("Asia/Shanghai")).strftime("%Y-%m-%d"),
         # 'fjsj': old['fjsj'],  # 返京时间# 2021.8.1 del
