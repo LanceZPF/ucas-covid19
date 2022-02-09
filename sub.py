@@ -15,6 +15,8 @@ from random import randint
 from datetime import datetime
 from email.utils import formataddr
 from email.mime.text import MIMEText
+from requests.adapters import HTTPAdapter
+
 
 # 开启debug将会输出打卡填报的数据，关闭debug只会输出打卡成功或者失败，如果使用github actions，请务必设置该选项为False
 debug = False
@@ -25,14 +27,18 @@ verify_cert = True
 # 全局变量，如果使用自己的服务器运行请根据需要修改 ->以下变量<-
 user = "USERNAME"  # sep 账号
 passwd = r"PASSWORD"  # sep 密码
-api_key = "API_KEY"  # 可选， server 酱的通知 api key
+api_key = ""  # 可选， server 酱的通知 api key
 
 # 可选，如果需要邮件通知，那么修改下面五行 :)
 smtp_port = "SMTP_PORT"
 smtp_server = "SMTP_SERVER"
-sender_email = "SENDER_EMAIL"
-sender_email_passwd = r"SENDER_EMAIL_PASSWD"
-receiver_email = "RECEIVER_EMAIL"
+sender_email = ""
+sender_email_passwd = r""
+receiver_email = ""
+
+# 可选，如果需要Telegram通知，修改下面
+tg_chat_id = ""  # 和bot的chat_id
+tg_bot_token = r""  # bot的token
 
 # 全局变量，使用自己的服务器运行请根据需要修改 ->以上变量<-
 
@@ -44,9 +50,12 @@ if os.environ.get('GITHUB_RUN_ID', None):
 
     smtp_port = os.environ.get('SMTP_PORT', '465')  # 邮件服务器端口，默认为qq smtp服务器端口
     smtp_server = os.environ.get('SMTP_SERVER', 'smtp.qq.com')  # 邮件服务器，默认为qq smtp服务器
-    sender_email = os.environ.get('SENDER_EMAIL', 'example@example.com')  # 发送通知打卡通知邮件的邮箱
-    sender_email_passwd = os.environ.get('SENDER_EMAIL_PASSWD', "password")  # 发送通知打卡通知邮件的邮箱密码
-    receiver_email = os.environ.get('RECEIVER_EMAIL', 'example@example.com')  # 接收打卡通知邮件的邮箱
+    sender_email = os.environ.get('SENDER_EMAIL', '')  # 发送通知打卡通知邮件的邮箱
+    sender_email_passwd = os.environ.get('SENDER_EMAIL_PASSWD', "")  # 发送通知打卡通知邮件的邮箱密码
+    receiver_email = os.environ.get('RECEIVER_EMAIL', '')  # 接收打卡通知邮件的邮箱
+
+    tg_chat_id = os.environ.get('TG_CHAT_ID', '')  # 和bot的chat_id
+    tg_bot_token = os.environ.get('TG_BOT_TOKEN', '')  # bot的token
 
 
 def login(s: requests.Session, username, password, cookie_file: Path):
@@ -68,12 +77,29 @@ def login(s: requests.Session, username, password, cookie_file: Path):
         "username": username,
         "password": password
     }
-    r = s.post("https://app.ucas.ac.cn/uc/wap/login/check", data=payload)
+
+    # 超时重试3次
+    s.mount('http://', HTTPAdapter(max_retries=3))
+    s.mount('https://', HTTPAdapter(max_retries=3))
+
+    try:
+        # 判断连接超时和读取超时的时间为30秒
+        r = s.post("https://app.ucas.ac.cn/uc/wap/login/check", data=payload, timeout=(30, 30))
+    except requests.exceptions.RequestException as e:
+        print("服务器连接异常", e)
+        message(api_key, sender_email, sender_email_passwd, receiver_email,
+                tg_bot_token, tg_chat_id, "健康打卡失败", "服务器连接异常，建议手动检查疫情防控打卡页面是否能够正常加载")
+
+    if r.status_code != 200:
+        print("服务器返回状态异常")
+        message(api_key, sender_email, sender_email_passwd, receiver_email,
+                tg_bot_token, tg_chat_id, "健康打卡失败", "服务器返回状态异常，建议手动检查疫情防控打卡页面是否能够正常加载")
 
     # print(r.text)
     if r.json().get('m') != "操作成功":
         print("登录失败")
-        message(api_key, sender_email, sender_email_passwd, receiver_email, "健康打卡登录失败", "登录失败")
+        message(api_key, sender_email, sender_email_passwd, receiver_email,
+                tg_bot_token, tg_chat_id, "健康打卡登录失败", "登录失败")
 
     else:
         cookie_file.write_text(json.dumps(requests.utils.dict_from_cookiejar(r.cookies), indent=2), encoding='utf-8', )
@@ -145,8 +171,8 @@ def submit(s: requests.Session, old: dict):
 
     check_data_msg = check_submit_data(new_daily)  # 检查上报结果
     if check_data_msg is not None:
-        message(api_key, sender_email, sender_email_passwd, receiver_email, "每日健康打卡-{}".format(check_data_msg),
-                "{}".format(new_daily))
+        message(api_key, sender_email, sender_email_passwd, receiver_email, tg_bot_token,
+                tg_chat_id, "每日健康打卡-{}".format(check_data_msg), "{}".format(new_daily))
         print("提交数据存在问题，请手动打卡，问题原因： {}".format(check_data_msg))
         return
 
@@ -163,7 +189,8 @@ def submit(s: requests.Session, old: dict):
     else:
         print("打卡失败，错误信息: ", r.json().get("m"))
 
-    message(api_key, sender_email, sender_email_passwd, receiver_email, result.get('m'), new_daily)
+    message(api_key, sender_email, sender_email_passwd, receiver_email,
+            tg_bot_token, tg_chat_id, result.get('m'), new_daily)
 
 
 def check_submit_data(data: dict):
@@ -185,7 +212,7 @@ def check_submit_data(data: dict):
     return ";".join(msg) if msg else None
 
 
-def message(key, sender, mail_passwd, receiver, subject, msg):
+def message(key, sender, mail_passwd, receiver, bot_token, chat_id, subject, msg):
     """
     再封装一下 :) 减少调用通知写的代码
     """
@@ -193,6 +220,8 @@ def message(key, sender, mail_passwd, receiver, subject, msg):
         server_chan_message(key, subject, msg)
     if sender_email != "" and receiver_email != "":
         send_email(sender, mail_passwd, receiver, subject, msg)
+    if tg_bot_token != "" and tg_chat_id != "":
+        send_telegram_message(bot_token, chat_id, "{}\n{}".format(subject, msg))
 
 
 def server_chan_message(key, title, body):
@@ -227,6 +256,18 @@ def send_email(sender, mail_passwd, receiver, subject, msg):
         print("邮件发送失败")
         if debug:
             print(ex)
+
+
+def send_telegram_message(bot_token, chat_id, msg):
+    """
+    Telegram通知打卡结果
+    python-telegram-bot 只支持 python 3.6或更高的版本
+    此处使用时再导入以保证向后兼容 python 3.5；
+    如果要使用 tg 消息通知，请使用 python 3.6或更高的版本
+    """
+    import telegram 
+    bot = telegram.Bot(token=bot_token)
+    bot.send_message(chat_id=chat_id, text=msg)
 
 
 def report(username, password):

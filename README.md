@@ -7,7 +7,7 @@
 
 **本程序仅用于解决忘记打卡这一问题，如果填报表中任意情况发生变化，比如地点发生变化，处在居家隔离阶段等情况，请务必在程序运行之前手动打卡。由于各种已知的或未知的原因可能造成打卡信息不一定总是准确的，请经常人工查看企业微信里面的填报表信息是否正确**
 
-**本程序仅供 14 日内没有离京并且没有任何异常情况的同学使用，请 14 日内有离京经历或者异常情况的同学认真且如实手工填写每日健康信息。如果 14 日内有离京经历，程序将会直接退出拒绝打卡。 --2021/8/1**
+**本程序仅供 14 日内没有离京并且没有任何异常情况的同学使用，请 14 日内有离京经历或者异常情况的同学认真且如实手工填写每日健康信息。如果检测到 14 日内有离京经历，或者提交数据中存在其他异常情况，程序将会直接退出拒绝打卡。 --2021/8/1**
 
 打卡网站可能会经常更新，因此代码会做更改。如果在使用过程中遇到问题或者发现 bug，可以提 issue 或者加入 [Telegram](https://t.me/ucas_covid19) 交流，代码更新也会在此处通知。
 如果想要即时得知代码的更新请 watch 本仓库。
@@ -19,8 +19,8 @@
 ## 用法
 1. 点击右上角`star` :)
 2. 安装方式一
-   * 直接将项目下载到服务器上，推荐使用`git clone` 或者`wget`的方式
-   * 进入到项目文件夹中，使用`pip3 install -r requirement.txt`命令一键安装依赖或者手动安装。依赖库为`requests`和`pytz`
+   * 直接将项目下载到服务器上，常用的方式是 `git clone https://github.com/IanSmith123/ucas-covid19 --depth=1` 或者 `wget https://github.com/IanSmith123/ucas-covid19/archive/refs/heads/master.zip`
+   * 进入到项目文件夹中，使用`pip3 install -r requirements.txt`命令一键安装依赖或者手动安装。依赖库为`requests`和`pytz`
    * 修改项目文件夹里面`sub.py`代码里面的sep账号和密码
 3. 安装方式二
    * 下载本项目到本地
@@ -28,18 +28,18 @@
    * 将`sub.py`上传到服务器上，安装依赖`requests`库和`pytz`库
 4. 安装方式三(偷懒版)
    * 在服务器中创建`sub.py`文件，然后复制本仓库`sub.py`中的代码到服务器`sub.py`文件。随后，修改服务器中`sub.py`代码里面的sep账号和密码。最后安装依赖。
-5. （可选）填写[server酱](http://sc.ftqq.com/3.version)的api，填写之后可以在程序完成打卡之后通知到微信，如果不填写不影响使用(**注意**：微信消息模板可能在2021年4月下线，服务可能失效)
+5. （可选）填写[server酱](http://sc.ftqq.com/3.version)的api，填写之后可以在程序完成打卡之后通知到微信，如果不填写不影响使用
 6. 修改crontab，设定为每天八点半运行。
 
 具体修改：
 ```bash
 $ crontab -e # 进入crontab的文本模式
-30 8 * * * /usr/bin/python3  /root/ucas-covid19/sub.py >>/tmp/yqfk.log # 在文本最后一行添加,注意修改为实际路径，大约2分钟后生效，重启服务直接生效。请注意这里使用是python3不是python2
+30 8 * * * /usr/bin/python3  /root/ucas-covid19/sub.py >>/tmp/yqfk.log # 在文本最后一行添加,注意修改为实际路径，修改后立即生效。请注意这里使用是python3不是python2
 ```
 
 
 ## 建议
-1. 定时时间设定到8:30，每天如果记起来了就手工填写，如果忘记了就由程序定时填写。填写的内容会和昨天的一致，地点也会保持昨天的地点不变。
+1. 定时时间设定到8:30，每天如果记起来了就手工填写，如果忘记了就由程序在要求的打卡时间截止之前填写。填写的内容会和昨天的一致，地点也会保持昨天的地点不变。
 2. 脚本运行所在的服务器的地理位置不会影响打卡的位置。
 3. 如果手工完成了打卡，程序会显示今日已经打卡，不会影响之前手工打卡的结果。
 
@@ -169,7 +169,8 @@ $ crontab -e
 - 2021年1月27日 优化了取 github 环境变量的方式，减少未设置变量导致出错的概率；兼容 python 3.5 的 pathlib
 - 2021年1月29日 解决接触时间 1970-01-01的问题， 见 [issue 36](https://github.com/IanSmith123/ucas-covid19/issues/36)
 - 2021年8月2日 只允许 14 天内未离京的同学使用该程序，删除非必要的键，如果 14 天内有异动，提示手动打卡; 修改了方糖通知的 api 调用的 url；网站证书配置的问题似乎已经修复，目前设置为正常的验证 ssl 证书
-
+- 2021年8月15日 添加了 tg bot 消息推送；修复了 sender_email 默认不为空导致未配置邮件发送也会发送邮件的 bug，见  [PR#44](https://github.com/IanSmith123/ucas-covid19/pull/44)
+- 2021年10月11日 添加了网站无法访问时通知打卡失败的功能，见[PR#49](https://github.com/IanSmith123/ucas-covid19/pull/49) 
 
 # 致谢
 - 感谢 [karuboniru](https://github.com/IanSmith123/ucas-covid19/pull/1) 提供的github actions 支持
@@ -180,6 +181,9 @@ $ crontab -e
 - 感谢 [T-winkle](https://github.com/IanSmith123/ucas-covid19/pull/24) 添加了邮件通知打卡结果的功能
 - 感谢 [lizard1998myx](https://github.com/IanSmith123/ucas-covid19/pull/28) 修复了提交信息缺少`去往何处`等字段的问题
 - 感谢 [elfisworking](https://github.com/IanSmith123/ucas-covid19/pull/40) 添加了依赖文件和完善了服务器部署说明
+- 感谢 [waruto210](https://github.com/IanSmith123/ucas-covid19/pull/44) 添加了对 tg 通知的支持和修复了 smtp 邮件发送者默认不为空的 bug
+- 感谢 [Deathstr0ke1](https://github.com/IanSmith123/ucas-covid19/pull/47) 对文档的完善工作
+- 感谢 [Deathstr0ke1](https://github.com/IanSmith123/ucas-covid19/pull/49) 对网站出现异常造成打卡失败时没有发送通知的问题
 
 <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/3.0/"><img alt="知识共享许可协议" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-sa/3.0/88x31.png" /></a><br />本作品采用<a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/3.0/">知识共享署名-非商业性使用-相同方式共享 3.0 未本地化版本许可协议</a>进行许可。
 
